@@ -1,442 +1,533 @@
 // ========================================
-// REGISTRARSE.JS - Sistema de Registro Corregido
+// REGISTRARSE.JS - Lógica específica de registro
 // ========================================
 
-  
-      class AuthSystem {
+(function() {
+    'use strict';
+
+    // ========================================
+    // GESTOR DE UI Y VALIDACIÓN
+    // ========================================
+
+    class RegistrationUIManager {
         constructor() {
-          this.USERS_KEY = 'usuariosRegistrados';
-          this.CURRENT_USER_KEY = 'usuarioActivo';
-          console.log('✅ Sistema de autenticación inicializado');
+            this.messageArea = null;
+            this.form = null;
+            this.submitBtn = null;
+            this.submitText = null;
+            this.submitLoader = null;
         }
 
-        registerUser(userData) {
-          console.log('🔄 Registrando usuario:', userData);
-          
-          const { nombre, apellido, correo, contrasena } = userData;
-          
-          // Validaciones
-          if (!nombre || !apellido || !correo || !contrasena) {
-            console.log('❌ Faltan campos requeridos');
-            return { success: false, message: 'Todos los campos son requeridos' };
-          }
-          
-          if (!correo.includes('@') || !correo.includes('.')) {
-            console.log('❌ Correo inválido');
-            return { success: false, message: 'El correo no es válido' };
-          }
-          
-          if (contrasena.length < 6) {
-            console.log('❌ Contraseña muy corta');
-            return { success: false, message: 'La contraseña debe tener al menos 6 caracteres' };
-          }
-
-          // Obtener usuarios existentes
-          const usuarios = this.getAllUsers();
-          console.log('👥 Usuarios existentes:', usuarios.length);
-          
-          // Verificar si ya existe
-          if (usuarios.find(u => u.correo === correo.toLowerCase())) {
-            console.log('❌ Correo ya registrado');
-            return { success: false, message: 'Este correo ya está registrado' };
-          }
-
-          // Crear nuevo usuario
-          const nuevoUsuario = {
-            id: Date.now().toString(),
-            nombre: nombre.trim(),
-            apellido: apellido.trim(),
-            correo: correo.toLowerCase().trim(),
-            contrasena,
-            fechaRegistro: new Date().toISOString()
-          };
-
-          // Guardar
-          usuarios.push(nuevoUsuario);
-          
-          try {
-            localStorage.setItem(this.USERS_KEY, JSON.stringify(usuarios));
-            console.log('✅ Usuario guardado en localStorage');
-            console.log('👤 Nuevo usuario:', nuevoUsuario);
+        init() {
+            console.log('🎨 Inicializando UI de registro...');
+            this.messageArea = document.getElementById('messageArea');
+            this.form = document.getElementById('registerForm');
+            this.submitBtn = document.getElementById('submitBtn');
+            this.submitText = document.getElementById('submitText');
+            this.submitLoader = document.getElementById('submitLoader');
             
-            // Verificar que se guardó
-            const verificacion = this.getAllUsers();
-            console.log('✅ Verificación - Total usuarios:', verificacion.length);
-            
-            return { success: true, message: 'Usuario registrado correctamente' };
-          } catch (error) {
-            console.error('❌ Error al guardar:', error);
-            return { success: false, message: 'Error al guardar el usuario' };
-          }
-        }
-
-        loginUser(correo, contrasena, recordar = false) {
-          console.log('🔑 Intentando login con:', correo);
-          
-          if (!correo || !contrasena) {
-            return { success: false, message: 'Correo y contraseña son requeridos' };
-          }
-
-          const usuarios = this.getAllUsers();
-          console.log('👥 Usuarios disponibles:', usuarios.length);
-          
-          const usuario = usuarios.find(u => u.correo === correo.toLowerCase());
-          
-          if (!usuario) {
-            console.log('❌ Usuario no encontrado');
-            return { success: false, message: 'Usuario no encontrado. Por favor regístrate.' };
-          }
-
-          if (usuario.contrasena !== contrasena) {
-            console.log('❌ Contraseña incorrecta');
-            return { success: false, message: 'Contraseña incorrecta' };
-          }
-
-          const sessionData = {
-            user: {
-              id: usuario.id,
-              nombre: usuario.nombre,
-              apellido: usuario.apellido,
-              correo: usuario.correo
-            },
-            timestamp: new Date().toISOString(),
-            remember: recordar
-          };
-
-          localStorage.setItem(this.CURRENT_USER_KEY, JSON.stringify(sessionData));
-          console.log('✅ Sesión iniciada correctamente');
-          
-          return { success: true, message: 'Inicio de sesión exitoso', user: sessionData.user };
-        }
-
-        getCurrentUser() {
-          try {
-            const sessionData = localStorage.getItem(this.CURRENT_USER_KEY);
-            if (!sessionData) return null;
-            const { user } = JSON.parse(sessionData);
-            return user;
-          } catch (error) {
-            console.error('Error al obtener usuario:', error);
-            return null;
-          }
-        }
-
-        isLoggedIn() {
-          const user = this.getCurrentUser();
-          return user !== null;
-        }
-
-        logoutUser() {
-          localStorage.removeItem(this.CURRENT_USER_KEY);
-          console.log('✅ Sesión cerrada');
-        }
-
-        getAllUsers() {
-          try {
-            const users = localStorage.getItem(this.USERS_KEY);
-            const resultado = users ? JSON.parse(users) : [];
-            console.log('📋 Usuarios en localStorage:', resultado);
-            return resultado;
-          } catch (error) {
-            console.error('❌ Error al obtener usuarios:', error);
-            return [];
-          }
-        }
-
-        clearAllData() {
-          localStorage.removeItem(this.USERS_KEY);
-          localStorage.removeItem(this.CURRENT_USER_KEY);
-          Object.keys(localStorage).forEach(key => {
-            if (key.startsWith('favorites_')) {
-              localStorage.removeItem(key);
+            if (!this.form) {
+                console.error('❌ Formulario de registro no encontrado');
+                return false;
             }
-          });
-          console.log('🗑️ Todos los datos limpiados');
-        }
-      }
-
-      // Crear instancia global
-      const auth = new AuthSystem();
-      
-      // ========================================
-      // MODO OSCURO
-      // ========================================
-      
-      document.addEventListener('DOMContentLoaded', function() {
-        const darkToggle = document.getElementById('darkToggle');
-        const html = document.documentElement;
-        
-        html.classList.remove('dark');
-        darkToggle.textContent = '🌙';
-        
-        darkToggle.addEventListener('click', () => {
-          const isDark = html.classList.toggle('dark');
-          darkToggle.textContent = isDark ? '☀️' : '🌙';
-        });
-      });
-      
-      // ========================================
-      // SISTEMA DE REGISTRO
-      // ========================================
-      
-      document.addEventListener("DOMContentLoaded", () => {
-        console.log('🚀 Inicializando página de registro');
-        
-        const form = document.getElementById("registerForm");
-        
-        if (!form) {
-          console.error('❌ ERROR: Formulario de registro no encontrado');
-          return;
+            
+            this.setupPasswordToggle();
+            this.setupRealTimeValidation();
+            return true;
         }
 
-        // Actualizar información de debug
-        updateDebugInfo();
-
-        // Verificar si ya hay sesión activa
-        if (auth.isLoggedIn()) {
-          alert('Ya tienes una sesión activa. Serás redirigido a favoritos.');
-          window.location.href = 'favoritos.html';
-          return;
+        setupPasswordToggle() {
+            const toggleBtn = document.getElementById('togglePassword');
+            const passwordInput = document.getElementById('contrasena');
+            
+            if (toggleBtn && passwordInput) {
+                toggleBtn.addEventListener('click', () => {
+                    const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                    passwordInput.setAttribute('type', type);
+                    
+                    const icon = toggleBtn.querySelector('svg');
+                    if (type === 'text') {
+                        icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"></path>';
+                    } else {
+                        icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>';
+                    }
+                });
+            }
         }
 
-        // Manejar envío del formulario
-        form.addEventListener("submit", (e) => {
-          e.preventDefault();
-          console.log('📝 Formulario de registro enviado');
-          
-          // Obtener valores del formulario
-          const nombre = document.getElementById("nombre").value.trim();
-          const apellido = document.getElementById("apellido").value.trim();
-          const correo = document.getElementById("correo").value.trim();
-          const contrasena = document.getElementById("contrasena").value;
-          const confirmarContrasena = document.getElementById("confirmarContrasena").value;
-
-          console.log('📋 Datos del formulario:', {
-            nombre,
-            apellido, 
-            correo,
-            contrasenaLength: contrasena.length,
-            passwordsMatch: contrasena === confirmarContrasena
-          });
-
-          // Validaciones básicas
-          if (!nombre || !apellido || !correo || !contrasena || !confirmarContrasena) {
-            showMessage("Por favor completa todos los campos.", "error");
-            return;
-          }
-
-          if (!correo.includes('@') || !correo.includes('.')) {
-            showMessage("Por favor ingresa un correo válido.", "error");
-            return;
-          }
-
-          if (contrasena.length < 6) {
-            showMessage("La contraseña debe tener al menos 6 caracteres.", "error");
-            return;
-          }
-
-          if (contrasena !== confirmarContrasena) {
-            showMessage("Las contraseñas no coinciden.", "error");
-            return;
-          }
-
-          // Preparar datos del usuario
-          const userData = {
-            nombre,
-            apellido,
-            correo,
-            contrasena
-          };
-
-          // Mostrar estado de carga
-          setFormLoading(true);
-
-          try {
-            console.log('🔄 Intentando registrar usuario...');
+        setupRealTimeValidation() {
+            const inputs = ['nombre', 'apellido', 'correo', 'contrasena', 'confirmarContrasena'];
             
-            // Intentar registrar
-            const result = auth.registerUser(userData);
-            
-            console.log('📤 Resultado del registro:', result);
-            
-            if (result.success) {
-              showMessage(result.message, "success");
-              form.reset();
-              
-              // Actualizar debug info
-              updateDebugInfo();
-              
-              // Redirigir a página de login después del registro
-              setTimeout(() => {
-                const irALogin = confirm('¡Registro exitoso! ¿Deseas ir a la página de inicio de sesión para entrar con tu nueva cuenta?');
-                if (irALogin) {
-                  console.log('🔄 Redirigiendo a página de login...');
-                  window.location.href = 'iniciar.html';
-                } else {
-                  console.log('👤 Usuario prefiere quedarse en registro');
-                  // El usuario prefiere quedarse, limpiar formulario
-                  form.reset();
-                  updateDebugInfo();
+            inputs.forEach(inputId => {
+                const input = document.getElementById(inputId);
+                if (input) {
+                    input.addEventListener('blur', () => this.validateField(inputId));
+                    input.addEventListener('input', () => this.clearFieldError(inputId));
                 }
-              }, 2000);
-              
+            });
+
+            // Validación especial para confirmar contraseña
+            const confirmarContrasena = document.getElementById('confirmarContrasena');
+            const contrasena = document.getElementById('contrasena');
+            if (confirmarContrasena && contrasena) {
+                confirmarContrasena.addEventListener('input', () => {
+                    if (confirmarContrasena.value && contrasena.value !== confirmarContrasena.value) {
+                        this.showFieldError('confirmarContrasena', 'Las contraseñas no coinciden');
+                    } else {
+                        this.clearFieldError('confirmarContrasena');
+                    }
+                });
+            }
+        }
+
+        validateField(fieldId) {
+            const input = document.getElementById(fieldId);
+            if (!input) return true;
+
+            const value = input.value.trim();
+            let isValid = true;
+            let errorMessage = '';
+
+            switch (fieldId) {
+                case 'nombre':
+                case 'apellido':
+                    if (!value) {
+                        errorMessage = 'Este campo es requerido';
+                        isValid = false;
+                    } else if (value.length < 2) {
+                        errorMessage = 'Debe tener al menos 2 caracteres';
+                        isValid = false;
+                    } else if (value.length > 50) {
+                        errorMessage = 'No puede exceder 50 caracteres';
+                        isValid = false;
+                    }
+                    break;
+                case 'correo':
+                    if (!value) {
+                        errorMessage = 'Este campo es requerido';
+                        isValid = false;
+                    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+                        errorMessage = 'Por favor ingresa un correo válido';
+                        isValid = false;
+                    }
+                    break;
+                case 'contrasena':
+                    if (!value) {
+                        errorMessage = 'Este campo es requerido';
+                        isValid = false;
+                    } else if (value.length < 6) {
+                        errorMessage = 'La contraseña debe tener al menos 6 caracteres';
+                        isValid = false;
+                    }
+                    break;
+                case 'confirmarContrasena':
+                    const passwordValue = document.getElementById('contrasena').value;
+                    if (!value) {
+                        errorMessage = 'Este campo es requerido';
+                        isValid = false;
+                    } else if (value !== passwordValue) {
+                        errorMessage = 'Las contraseñas no coinciden';
+                        isValid = false;
+                    }
+                    break;
+            }
+
+            if (!isValid) {
+                this.showFieldError(fieldId, errorMessage);
             } else {
-              showMessage(result.message, "error");
-              setFormLoading(false);
+                this.clearFieldError(fieldId);
+            }
+
+            return isValid;
+        }
+
+        showFieldError(fieldId, message) {
+            const errorDiv = document.getElementById(`${fieldId}-error`);
+            const input = document.getElementById(fieldId);
+            
+            if (errorDiv) {
+                errorDiv.textContent = message;
+                errorDiv.classList.remove('hidden');
             }
             
-          } catch (error) {
-            console.error('💥 Error durante el registro:', error);
-            showMessage('Error inesperado. Por favor intenta de nuevo.', 'error');
-            setFormLoading(false);
-          }
-        });
-
-        console.log('✅ Sistema de registro inicializado correctamente');
-      });
-
-      // ========================================
-      // FUNCIONES DE UTILIDAD
-      // ========================================
-      
-      function showMessage(message, type = 'info') {
-        console.log(`💬 Mensaje ${type}:`, message);
-        
-        let messageArea = document.getElementById('messageArea');
-        
-        if (!messageArea) {
-          messageArea = document.createElement('div');
-          messageArea.id = 'messageArea';
-          messageArea.className = 'mb-6';
-          const form = document.getElementById('registerForm');
-          form.parentNode.insertBefore(messageArea, form);
-        }
-
-        messageArea.innerHTML = '';
-        messageArea.classList.remove('hidden');
-
-        let bgColor, textColor, icon;
-        switch (type) {
-          case 'success':
-            bgColor = 'bg-green-100 dark:bg-green-900/20 border-green-400';
-            textColor = 'text-green-700 dark:text-green-300';
-            icon = '✅';
-            break;
-          case 'error':
-            bgColor = 'bg-red-100 dark:bg-red-900/20 border-red-400';
-            textColor = 'text-red-700 dark:text-red-300';
-            icon = '❌';
-            break;
-          case 'info':
-          default:
-            bgColor = 'bg-blue-100 dark:bg-blue-900/20 border-blue-400';
-            textColor = 'text-blue-700 dark:text-blue-300';
-            icon = 'ℹ️';
-            break;
-        }
-
-        messageArea.innerHTML = `
-          <div class="border ${bgColor} ${textColor} px-4 py-3 rounded-lg flex items-center space-x-2">
-            <span>${icon}</span>
-            <span>${message}</span>
-          </div>
-        `;
-
-        if (type !== 'error') {
-          setTimeout(() => {
-            messageArea.classList.add('hidden');
-          }, 5000);
-        }
-      }
-
-      function setFormLoading(loading) {
-        const submitBtn = document.getElementById('submitBtn');
-        const submitText = document.getElementById('submitText');
-        const submitLoader = document.getElementById('submitLoader');
-
-        if (submitBtn) {
-          submitBtn.disabled = loading;
-        }
-        
-        if (submitText && submitLoader) {
-          if (loading) {
-            submitText.classList.add('hidden');
-            submitLoader.classList.remove('hidden');
-          } else {
-            submitText.classList.remove('hidden');
-            submitLoader.classList.add('hidden');
-          }
-        }
-
-        const form = document.getElementById('registerForm');
-        const inputs = form?.querySelectorAll('input') || [];
-        inputs.forEach(input => {
-          input.disabled = loading;
-        });
-      }
-
-      function updateDebugInfo() {
-        const authStatus = document.getElementById('authStatus');
-        const userCount = document.getElementById('userCount');
-        
-        if (authStatus) {
-          authStatus.textContent = typeof auth !== 'undefined' ? '✅ Sistema disponible' : '❌ Sistema no disponible';
-        }
-        
-        if (userCount) {
-          const users = auth ? auth.getAllUsers() : [];
-          userCount.textContent = `Usuarios: ${users.length}`;
-        }
-      }
-
-      // Funciones de prueba
-      function llenarFormularioPrueba() {
-        document.getElementById('nombre').value = 'Juan';
-        document.getElementById('apellido').value = 'Pérez';
-        document.getElementById('correo').value = 'juan@test.com';
-        document.getElementById('contrasena').value = '123456';
-        document.getElementById('confirmarContrasena').value = '123456';
-        
-        showMessage('✅ Formulario llenado con datos de prueba', 'info');
-      }
-      
-      function verUsuarios() {
-        const usuarios = auth.getAllUsers();
-        console.log('👥 Usuarios registrados:', usuarios);
-        
-        if (usuarios.length === 0) {
-          alert('No hay usuarios registrados');
-        } else {
-          const lista = usuarios.map(u => `${u.nombre} ${u.apellido} (${u.correo})`).join('\n');
-          alert(`Usuarios registrados (${usuarios.length}):\n\n${lista}`);
-        }
-      }
-      
-      function limpiarDatos() {
-        if (confirm('¿Estás seguro de que quieres eliminar todos los datos?')) {
-          auth.clearAllData();
-          updateDebugInfo();
-          showMessage('Todos los datos han sido eliminados', 'info');
-        }
-      }
-
-      // Menú móvil
-      document.addEventListener('DOMContentLoaded', function() {
-        const menuToggle = document.getElementById('menuToggle');
-        const mobileMenu = document.getElementById('mobileMenu');
-        
-        if (menuToggle && mobileMenu) {
-          menuToggle.addEventListener('click', function() {
-            mobileMenu.classList.toggle('hidden');
-          });
-          
-          document.addEventListener('click', function(event) {
-            if (!menuToggle.contains(event.target) && !mobileMenu.contains(event.target)) {
-              mobileMenu.classList.add('hidden');
+            if (input) {
+                input.classList.add('border-red-500', 'focus:border-red-500', 'focus:ring-red-500');
+                input.classList.remove('border-gray-300', 'focus:border-blue-500', 'focus:ring-blue-500');
             }
-          });
         }
-      });
-    </script>
-  </body>
-</html>
+
+        clearFieldError(fieldId) {
+            const errorDiv = document.getElementById(`${fieldId}-error`);
+            const input = document.getElementById(fieldId);
+            
+            if (errorDiv) {
+                errorDiv.classList.add('hidden');
+            }
+            
+            if (input) {
+                input.classList.remove('border-red-500', 'focus:border-red-500', 'focus:ring-red-500');
+                input.classList.add('border-gray-300', 'focus:border-blue-500', 'focus:ring-blue-500');
+            }
+        }
+
+        showMessage(message, type = 'info') {
+            console.log(`💬 Mostrando mensaje ${type}:`, message);
+            
+            if (!this.messageArea) {
+                console.error('❌ messageArea no encontrado');
+                return;
+            }
+
+            this.messageArea.innerHTML = '';
+            this.messageArea.classList.remove('hidden');
+
+            let bgColor, textColor, icon;
+            switch (type) {
+                case 'success':
+                    bgColor = 'bg-green-100 dark:bg-green-900/20 border-green-400';
+                    textColor = 'text-green-700 dark:text-green-300';
+                    icon = '✅';
+                    break;
+                case 'error':
+                    bgColor = 'bg-red-100 dark:bg-red-900/20 border-red-400';
+                    textColor = 'text-red-700 dark:text-red-300';
+                    icon = '❌';
+                    break;
+                case 'info':
+                default:
+                    bgColor = 'bg-blue-100 dark:bg-blue-900/20 border-blue-400';
+                    textColor = 'text-blue-700 dark:text-blue-300';
+                    icon = 'ℹ️';
+                    break;
+            }
+
+            this.messageArea.innerHTML = `
+                <div class="border ${bgColor} ${textColor} px-4 py-3 rounded-lg flex items-center space-x-2">
+                    <span>${icon}</span>
+                    <span>${message}</span>
+                </div>
+            `;
+
+            console.log('✅ Mensaje mostrado correctamente');
+
+            // Auto-ocultar mensajes de éxito e info después de 5 segundos
+            if (type !== 'error') {
+                setTimeout(() => {
+                    if (this.messageArea) {
+                        this.messageArea.classList.add('hidden');
+                    }
+                }, 5000);
+            }
+        }
+
+        setFormLoading(loading) {
+            console.log('🔄 Cambiando estado de carga:', loading);
+            
+            if (this.submitBtn) {
+                this.submitBtn.disabled = loading;
+            }
+            
+            if (this.submitText && this.submitLoader) {
+                if (loading) {
+                    this.submitText.classList.add('hidden');
+                    this.submitLoader.classList.remove('hidden');
+                } else {
+                    this.submitText.classList.remove('hidden');
+                    this.submitLoader.classList.add('hidden');
+                }
+            }
+
+            const inputs = this.form?.querySelectorAll('input') || [];
+            inputs.forEach(input => {
+                input.disabled = loading;
+            });
+        }
+
+        validateForm() {
+            const fields = ['nombre', 'apellido', 'correo', 'contrasena', 'confirmarContrasena'];
+            let isValid = true;
+
+            fields.forEach(fieldId => {
+                if (!this.validateField(fieldId)) {
+                    isValid = false;
+                }
+            });
+
+            return isValid;
+        }
+
+        getFormData() {
+            return {
+                nombre: document.getElementById('nombre').value.trim(),
+                apellido: document.getElementById('apellido').value.trim(),
+                correo: document.getElementById('correo').value.trim(),
+                contrasena: document.getElementById('contrasena').value
+            };
+        }
+
+        clearAllFieldErrors() {
+            const fields = ['nombre', 'apellido', 'correo', 'contrasena', 'confirmarContrasena'];
+            fields.forEach(fieldId => {
+                this.clearFieldError(fieldId);
+            });
+        }
+
+        resetForm() {
+            if (this.form) {
+                this.form.reset();
+                this.clearAllFieldErrors();
+            }
+        }
+    }
+
+    // ========================================
+    // APLICACIÓN PRINCIPAL DE REGISTRO
+    // ========================================
+
+    class RegistrationPageApp {
+        constructor() {
+            this.ui = new RegistrationUIManager();
+        }
+
+        async init() {
+            console.log('🚀 Inicializando aplicación de registro');
+            
+            // Verificar que auth esté disponible
+            if (typeof auth === 'undefined') {
+                console.error('❌ Sistema de autenticación no encontrado');
+                alert('Error: Sistema de autenticación no disponible. Asegúrate de cargar auth.js primero.');
+                return;
+            }
+
+            console.log('✅ Sistema auth encontrado:', auth);
+
+            // Verificar localStorage
+            try {
+                localStorage.setItem('test_registro', 'funciona');
+                const testResult = localStorage.getItem('test_registro');
+                localStorage.removeItem('test_registro');
+                console.log('✅ LocalStorage funciona:', testResult);
+            } catch (error) {
+                console.error('❌ Error con localStorage:', error);
+                alert('Error: LocalStorage no está disponible en este navegador o contexto.');
+                return;
+            }
+
+            // Verificar si ya hay sesión activa
+            if (auth.isLoggedIn()) {
+                const currentUser = auth.getCurrentUser();
+                console.log('👤 Usuario ya logueado:', currentUser);
+                
+                const shouldRedirect = confirm(
+                    `Ya tienes una sesión activa como ${currentUser.nombre} ${currentUser.apellido}. ¿Deseas ir a la página de favoritos?`
+                );
+                
+                if (shouldRedirect) {
+                    window.location.href = 'favoritos.html';
+                    return;
+                }
+            }
+
+            // Inicializar UI
+            if (!this.ui.init()) {
+                console.error('❌ Error al inicializar UI');
+                return;
+            }
+            
+            // Configurar formulario
+            this.setupForm();
+            
+            console.log('✅ Aplicación de registro inicializada correctamente');
+        }
+
+        setupForm() {
+            const form = document.getElementById('registerForm');
+            
+            if (!form) {
+                console.error('❌ ERROR: Formulario de registro no encontrado');
+                return;
+            }
+
+            console.log('✅ Formulario encontrado, configurando eventos...');
+
+            form.addEventListener('submit', (e) => this.handleSubmit(e));
+            
+            // Prevenir envío accidental con Enter
+            form.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && e.target.type !== 'submit') {
+                    e.preventDefault();
+                    this.handleSubmit(e);
+                }
+            });
+        }
+
+        async handleSubmit(e) {
+            e.preventDefault();
+            console.log('📝 Formulario de registro enviado');
+            
+            // Validar formulario
+            if (!this.ui.validateForm()) {
+                console.log('❌ Validación de formulario fallida');
+                this.ui.showMessage('Por favor corrige los errores en el formulario', 'error');
+                return;
+            }
+
+            // Obtener datos del formulario
+            const formData = this.ui.getFormData();
+            console.log('📋 Datos del formulario obtenidos:', { ...formData, contrasena: '[OCULTA]' });
+
+            // Mostrar estado de carga
+            this.ui.setFormLoading(true);
+
+            try {
+                // Simular delay para mejor UX
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                console.log('🔄 Intentando registrar usuario con auth.registerUser...');
+                
+                // Verificar que auth aún existe
+                if (typeof auth === 'undefined') {
+                    throw new Error('Sistema auth no disponible');
+                }
+                
+                // Intentar registrar
+                const result = auth.registerUser(formData);
+                
+                console.log('📤 Resultado del registro desde auth:', result);
+                
+                if (result && result.success) {
+                    console.log('🎉 Registro exitoso!');
+                    
+                    // Verificar que se guardó en localStorage
+                    const usuarios = auth.getAllUsers();
+                    console.log('👥 Usuarios después del registro:', usuarios.length);
+                    
+                    // Mostrar mensaje de éxito
+                    this.ui.showMessage(
+                        '¡Cuenta creada exitosamente! 🎉 Ahora puedes iniciar sesión con tu nueva cuenta.', 
+                        'success'
+                    );
+                    
+                    // Limpiar formulario
+                    this.ui.resetForm();
+                    
+                    // Preguntar sobre redirección
+                    setTimeout(() => {
+                        this.handleSuccessfulRegistration();
+                    }, 3000);
+                    
+                } else {
+                    console.log('❌ Error en registro:', result ? result.message : 'Sin mensaje de error');
+                    this.ui.showMessage(result ? result.message : 'Error desconocido en el registro', 'error');
+                }
+                
+            } catch (error) {
+                console.error('💥 Error crítico durante el registro:', error);
+                this.ui.showMessage('Error inesperado. Por favor intenta de nuevo.', 'error');
+            } finally {
+                this.ui.setFormLoading(false);
+            }
+        }
+
+        handleSuccessfulRegistration() {
+            const userChoice = confirm(
+                '¡Tu cuenta ha sido creada exitosamente! 🎉\n\n¿Deseas ir ahora a la página de inicio de sesión?'
+            );
+            
+            if (userChoice) {
+                console.log('🔄 Redirigiendo a página de login...');
+                window.location.href = 'iniciar.html';
+            } else {
+                console.log('👤 Usuario prefiere quedarse en registro');
+                this.ui.showMessage(
+                    'Perfecto. Puedes registrar otra cuenta o ir a iniciar sesión cuando gustes.',
+                    'info'
+                );
+            }
+        }
+    }
+
+    // ========================================
+    // FUNCIONES GLOBALES PARA DEBUGGING
+    // ========================================
+
+    window.debugRegister = {
+        fillTestForm: () => {
+            const timestamp = Date.now().toString().slice(-4);
+            const elements = {
+                nombre: document.getElementById('nombre'),
+                apellido: document.getElementById('apellido'),
+                correo: document.getElementById('correo'),
+                contrasena: document.getElementById('contrasena'),
+                confirmarContrasena: document.getElementById('confirmarContrasena')
+            };
+            
+            if (elements.nombre) elements.nombre.value = 'Juan';
+            if (elements.apellido) elements.apellido.value = 'Pérez';
+            if (elements.correo) elements.correo.value = `test${timestamp}@email.com`;
+            if (elements.contrasena) elements.contrasena.value = '123456';
+            if (elements.confirmarContrasena) elements.confirmarContrasena.value = '123456';
+            
+            console.log('✅ Formulario llenado con datos de prueba');
+        },
+        
+        testAuth: () => {
+            console.log('🔍 Probando sistema auth...');
+            console.log('Auth disponible:', typeof auth !== 'undefined');
+            if (typeof auth !== 'undefined') {
+                console.log('Usuarios actuales:', auth.getAllUsers().length);
+                console.log('Usuario logueado:', auth.getCurrentUser());
+            }
+        },
+        
+        testLocalStorage: () => {
+            console.log('🔍 Probando localStorage...');
+            try {
+                localStorage.setItem('test', 'funciona');
+                console.log('Test result:', localStorage.getItem('test'));
+                localStorage.removeItem('test');
+                console.log('✅ localStorage funciona correctamente');
+            } catch (error) {
+                console.error('❌ Error con localStorage:', error);
+            }
+        },
+        
+        viewUsers: () => {
+            if (typeof auth === 'undefined') {
+                console.error('❌ Sistema auth no disponible');
+                return;
+            }
+            
+            const usuarios = auth.getAllUsers();
+            console.table(usuarios);
+            alert(`Usuarios registrados: ${usuarios.length}`);
+        },
+        
+        clearData: () => {
+            if (typeof auth !== 'undefined' && confirm('¿Limpiar todos los datos?')) {
+                auth.clearAllData();
+                console.log('🗑️ Datos limpiados');
+                location.reload();
+            }
+        }
+    };
+
+    // ========================================
+    // INICIALIZACIÓN
+    // ========================================
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        console.log('🌟 DOM cargado, iniciando aplicación de registro...');
+        const app = new RegistrationPageApp();
+        await app.init();
+    });
+
+    // Logs de debug
+    console.log('🔧 Funciones de debug disponibles en window.debugRegister:');
+    console.log('- debugRegister.fillTestForm() - Llena el formulario');
+    console.log('- debugRegister.testAuth() - Prueba el sistema auth');
+    console.log('- debugRegister.testLocalStorage() - Prueba localStorage');
+    console.log('- debugRegister.viewUsers() - Muestra usuarios');
+    console.log('- debugRegister.clearData() - Limpia datos');
+
+})();
